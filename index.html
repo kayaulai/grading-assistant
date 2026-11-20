@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grading Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,800;1,400&family=Merriweather+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="brand">
+      <h1>Grading assistant</h1>
+      <p id="session-label" class="session-label"></p>
+    </div>
+    <nav id="app-nav" class="app-nav" aria-label="Grading sections" hidden>
+      <ul>
+        <li><button type="button" data-screen="grade">Grade</button></li>
+        <li><button type="button" data-screen="progress">Progress</button></li>
+        <li><button type="button" data-screen="library">Canned issues</button></li>
+        <li><button type="button" data-screen="report">Report</button></li>
+        <li><button type="button" data-screen="setup">Setup</button></li>
+      </ul>
+    </nav>
+    <div id="save-area" class="save-area" hidden>
+      <span id="save-status" class="save-status"></span>
+      <button type="button" class="btn btn-dark" id="export-all">Export everything</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <div id="notice" class="notice" hidden>
+    <div id="notice-text"></div>
+    <button type="button" class="btn-small" id="notice-close">Dismiss</button>
+  </div>
+
+  <!-- ============ Start ============ -->
+  <section id="screen-start" class="screen" aria-labelledby="start-title">
+    <div class="card">
+      <h2 id="start-title" tabindex="-1">Let's get grading</h2>
+      <p>Set up your students, questions and rubric columns, then grade one answer at a time. Each issue you write becomes a <strong>canned issue</strong> you can pick from a list later, so the same mistake always gets the same comment and the same deduction.</p>
+      <p class="privacy-note">Everything stays in this browser: nothing is uploaded. Use <strong>Export everything</strong> whenever you stop for the day, to keep a backup or carry on from another computer.</p>
+    </div>
+
+    <div id="resume-card" class="card" hidden>
+      <h3>Pick up where you left off</h3>
+      <p id="resume-summary"></p>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="resume-btn">Resume</button>
+        <button type="button" class="btn btn-outline" id="discard-btn">Clear this browser's copy</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Open an exported session</h3>
+      <div class="field">
+        <label for="open-session-file">Session file (the .json from “Export everything”)</label>
+        <input type="file" id="open-session-file" accept=".json,application/json">
+      </div>
+      <p id="open-error" class="error-text" role="alert"></p>
+    </div>
+
+    <div class="card">
+      <h3>Start a new assignment</h3>
+      <div id="new-setup"></div>
+    </div>
+  </section>
+
+  <!-- ============ Grade ============ -->
+  <section id="screen-grade" class="screen" aria-labelledby="grade-title" hidden>
+    <div class="card answer-head">
+      <div class="answer-head__text">
+        <h2 id="grade-title" tabindex="-1"></h2>
+        <p id="grade-meta" class="meta"></p>
+      </div>
+      <div class="btn-row answer-head__actions">
+        <button type="button" class="btn btn-outline" id="prev-answer">Previous student</button>
+        <button type="button" class="btn btn-primary" id="save-next">Mark graded, next student</button>
+      </div>
+    </div>
+
+    <div class="grade-grid">
+      <section class="card" aria-labelledby="add-title" id="add-card">
+        <h3 id="add-title">Add an issue</h3>
+        <div id="pickers" class="pickers"></div>
+        <form id="issue-form" novalidate>
+          <div class="field">
+            <label for="issue-text">Issue</label>
+            <textarea id="issue-text" rows="3" aria-describedby="issue-text-hint"></textarea>
+            <p id="issue-text-hint" class="field-hint">Type a new issue, or pick one from a list above and adjust it. Ctrl+Enter (⌘+Enter on a Mac) adds it.</p>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="issue-rubric">Rubric column</label>
+              <select id="issue-rubric"></select>
+            </div>
+            <div class="field">
+              <label for="issue-points">Points deducted</label>
+              <input id="issue-points" type="number" min="0" step="any" inputmode="decimal">
+            </div>
+          </div>
+          <div class="check">
+            <input type="checkbox" id="issue-specific">
+            <label for="issue-specific">Student-specific (don't save it to canned issues)</label>
+          </div>
+          <p id="link-status" class="link-status"></p>
+          <p id="issue-error" class="error-text" role="alert"></p>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="issue-submit">Add issue</button>
+            <button type="button" class="btn btn-outline" id="issue-clear">Clear</button>
+          </div>
+        </form>
+        <div class="check check--quiet">
+          <input type="checkbox" id="auto-copy">
+          <label for="auto-copy">Copy each issue to the clipboard when I add it, so I can paste it into the student's work</label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <h3 id="list-title" tabindex="-1">Issues for this answer</h3>
+        <ol id="issue-list" class="issue-list"></ol>
+        <p id="issue-totals" class="totals"></p>
+      </section>
+    </div>
+
+    <div class="card jump-card">
+      <div class="jump-row">
+        <div class="field">
+          <label for="jump-question">Go to question</label>
+          <select id="jump-question"></select>
+        </div>
+        <div class="field">
+          <label for="jump-student">Go to student</label>
+          <select id="jump-student"></select>
+        </div>
+        <button type="button" class="btn btn-outline" id="finish-question">Review this question's canned issues</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Review a question ============ -->
+  <section id="screen-review" class="screen" aria-labelledby="review-title" hidden>
+    <div class="card">
+      <h2 id="review-title" tabindex="-1">Finish a question</h2>
+      <div id="review-body"></div>
+    </div>
+  </section>
+
+  <!-- ============ Progress ============ -->
+  <section id="screen-progress" class="screen" aria-labelledby="progress-title" hidden>
+    <div class="card">
+      <h2 id="progress-title" tabindex="-1">Progress</h2>
+      <div id="progress-body"></div>
+    </div>
+  </section>
+
+  <!-- ============ Canned issue library ============ -->
+  <section id="screen-library" class="screen" aria-labelledby="library-title" hidden>
+    <div class="card">
+      <h2 id="library-title" tabindex="-1">Canned issues</h2>
+      <p>Every reusable issue you've written. Change the points, choose which questions an issue shows up in, or delete it. Answers that already use a deleted issue keep their deduction.</p>
+      <div class="field">
+        <label for="lib-filter">Show</label>
+        <select id="lib-filter" class="select-auto"></select>
+      </div>
+      <p id="lib-count" class="meta"></p>
+      <div id="lib-body"></div>
+    </div>
+    <div class="card">
+      <h3>Import and export canned issues</h3>
+      <div class="two-col">
+        <div class="field">
+          <label for="lib-imp-general">Import general canned issues (.json)</label>
+          <input type="file" id="lib-imp-general" accept=".json,application/json">
+          <p id="lib-imp-general-status" class="field-hint" role="status"></p>
+        </div>
+        <div class="field">
+          <label for="lib-imp-question">Import question-specific canned issues (.json)</label>
+          <input type="file" id="lib-imp-question" accept=".json,application/json">
+          <p id="lib-imp-question-status" class="field-hint" role="status"></p>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-outline" data-download="question">Download question-specific issues (JSON)</button>
+        <button type="button" class="btn btn-outline" data-download="general">Download general issues (JSON)</button>
+      </div>
+      <p class="field-hint dl-status" role="status"></p>
+    </div>
+  </section>
+
+  <!-- ============ Report ============ -->
+  <section id="screen-report" class="screen" aria-labelledby="report-title" hidden>
+    <div class="card">
+      <h2 id="report-title" tabindex="-1">Report</h2>
+      <div id="report-body"></div>
+    </div>
+    <div class="card">
+      <h3>Downloads</h3>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" data-download="deductions">Download points deducted (CSV)</button>
+        <button type="button" class="btn btn-primary" data-download="scores" id="scores-download">Download scores (CSV)</button>
+        <button type="button" class="btn btn-outline" data-download="log">Download every issue, per student (CSV)</button>
+      </div>
+      <p id="scores-hint" class="field-hint" hidden>Want a scores file too? Give your rubric columns a max on the Setup page.</p>
+      <div class="btn-row">
+        <button type="button" class="btn btn-outline" data-download="question">Download question-specific issues (JSON)</button>
+        <button type="button" class="btn btn-outline" data-download="general">Download general issues (JSON)</button>
+      </div>
+      <p class="field-hint dl-status" role="status"></p>
+    </div>
+  </section>
+
+  <!-- ============ Setup ============ -->
+  <section id="screen-setup" class="screen" aria-labelledby="setup-title" hidden>
+    <div class="card">
+      <h2 id="setup-title" tabindex="-1">Setup</h2>
+      <p>Add a late student, another question or a rubric column. If you remove something that already has grading attached, you'll be asked first.</p>
+      <div id="edit-setup"></div>
+    </div>
+    <div class="card">
+      <h3>Close this session</h3>
+      <p>Finished with this assignment? Export everything first, then clear this browser's copy so it's ready for the next one.</p>
+      <button type="button" class="btn btn-reset" id="close-session">Close session and clear this browser's copy</button>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="dlg" class="dlg" aria-labelledby="dlg-title" aria-describedby="dlg-body">
+  <h2 id="dlg-title"></h2>
+  <div id="dlg-body" class="dlg-body"></div>
+  <div id="dlg-buttons" class="btn-row"></div>
+</dialog>
+
+<p id="live" class="visually-hidden" aria-live="polite"></p>
+</body>
+</html>
