@@ -9,6 +9,24 @@ It's three static files (`index.html`, `app.js`, `style.css`). No build step, no
 server, no accounts: open `index.html` in a browser, or host the folder on GitHub
 Pages.
 
+## Installing it as an app
+
+Hosted on GitHub Pages (or any `https://` address, or `localhost`), it can be
+installed as a desktop app with its own window, Start menu entry and taskbar icon.
+In Edge or Chrome, open the page and choose **⋯ → Apps → Install this site as an
+app**, then right-click its taskbar icon and choose **Pin to taskbar**. Once
+installed it opens offline too. Opened straight from `index.html` as a `file://`
+page, it works as before but can't be installed.
+
+Your saved work belongs to the address you graded at: the installed app doesn't
+see work saved while grading from `file://` or a different address. Export before
+switching, then import.
+
+The icon is `icons/icon.svg`; the PNGs next to it are exports of it. The service
+worker (`sw.js`) always tries the network first, so changes you push show up the
+next time the app opens online. If you add or rename a file, add it to `APP_FILES`
+in `sw.js` so it's also available offline.
+
 ## Privacy
 
 Student names and grades never leave your computer. The tool autosaves to your
