@@ -201,6 +201,40 @@ main:focus { outline: none; }
 .field textarea { resize: vertical; }
 .field select.select-auto { width: auto; max-width: 100%; }
 .field input[type="file"] { font: inherit; font-size: 14px; max-width: 100%; }
+
+/* File drop zones: the real file input covers the whole zone invisibly (see enhanceFileInputs). */
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 110px;
+  padding: 18px 16px;
+  border: 2px dashed var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+  transition: background-color .12s, border-color .12s;
+}
+.dropzone strong { color: var(--text); }
+.dropzone__icon { font-size: 26px; line-height: 1; color: var(--olympic); }
+.field .dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  opacity: 0;
+  cursor: pointer;
+}
+.dropzone:hover { border-color: var(--uga-red); background: #fff; }
+.dropzone:focus-within { outline: 3px solid var(--uga-red); outline-offset: 2px; }
+.dropzone.is-over { border-color: var(--uga-red); border-style: solid; background: #fdeef1; }
+.dropzone.is-over strong { color: var(--uga-red-dark); }
 ::placeholder { color: var(--muted); opacity: 1; }
 .field-hint { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 .field-hint:empty { display: none; }

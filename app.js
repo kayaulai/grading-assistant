@@ -499,6 +499,52 @@
       h("p", { class: "field-hint", id: p + "-rubric-file-hint", text: "A rubric downloaded here, a session export, or a spreadsheet saved as CSV with a column name and max points on each line." }),
       rbStatus);
 
+    // Load the student list from a file into the Students box (replacing or adding to what's there).
+    var stStatus = h("p", { class: "field-hint", role: "status" });
+    var stFile = h("input", { type: "file", id: p + "-students-file", accept: ".csv,.tsv,.txt,.json,text/csv,text/plain,application/json", "aria-describedby": p + "-students-file-hint" });
+    stFile.addEventListener("change", async function () {
+      var file = stFile.files[0];
+      stStatus.textContent = "";
+      stStatus.classList.remove("error-text");
+      if (!file) return;
+      try {
+        var list = parseStudentFile(await file.text(), file.name);
+        var box = $(p + "-students");
+        var current = lines(box.value);
+        var mode = "replace";
+        if (current.length) {
+          var have = current.map(norm);
+          var fresh = list.filter(function (n) { return have.indexOf(norm(n)) < 0; });
+          var body = ["The Students box has " + plural(current.length, "name") + ". The file has " + plural(list.length, "name") +
+            (fresh.length < list.length ? ", " + plural(list.length - fresh.length, "name") + " already in the box" : "") + "."];
+          if (editing) body.push("Nothing changes until you press Save changes. Removing a student who already has grading will ask you first.");
+          mode = await ask("Use the students from " + file.name + "?", body, [
+            { label: "Add the new names", value: "add", kind: "btn-primary" },
+            { label: "Replace the list", value: "replace" },
+            { label: "Cancel", value: null }
+          ]);
+          if (!mode) return;
+          if (mode === "add") list = current.concat(fresh);
+        }
+        box.value = list.join("\n");
+        var d = duplicates(list);
+        stStatus.textContent = (mode === "add" ? "Students box now has " : "Loaded ") + plural(list.length, "student") +
+          (mode === "add" ? "." : " from " + file.name + ".") + (d.length ? " Listed twice: " + listText(d) + "." : "") +
+          (editing ? " Press Save changes to use them." : "");
+        if (d.length) stStatus.classList.add("error-text");
+      } catch (e) {
+        stStatus.textContent = e.message;
+        stStatus.classList.add("error-text");
+      } finally {
+        stFile.value = "";
+      }
+    });
+    var stField = h("div", { class: "field" },
+      h("label", { for: stFile.id, text: "Load students from a file (.csv, .txt or a session .json)" }),
+      stFile,
+      h("p", { class: "field-hint", id: p + "-students-file-hint", text: "A spreadsheet saved as CSV (a Name or Student column, or First name and Last name columns, or names in the first column), a text file with one name per line, or a session export." }),
+      stStatus);
+
     var err = h("div", { class: "error-text", role: "alert" });
     var ok = h("p", { class: "field-hint", role: "status" });
 
@@ -553,10 +599,12 @@
       textField(p + "-assignment", "Assignment name", null,
         h("input", { type: "text", id: p + "-assignment", value: v.assignment, autocomplete: "off" })),
       h("div", { class: "two-col" },
-        textField(p + "-students", "Students", editing ?
-          "One per line. Renaming someone here is fine: you'll be asked whether it's a rename or a different student." :
-          "One per line. You can paste a column straight from a spreadsheet.",
-          h("textarea", { id: p + "-students", rows: 8, "aria-describedby": p + "-students-hint", value: v.students })),
+        h("div", null,
+          textField(p + "-students", "Students", editing ?
+            "One per line. Renaming someone here is fine: you'll be asked whether it's a rename or a different student." :
+            "One per line. You can paste a column straight from a spreadsheet, or load a file below.",
+            h("textarea", { id: p + "-students", rows: 8, "aria-describedby": p + "-students-hint", value: v.students })),
+          stField),
         textField(p + "-questions", "Questions", "One per line, in the order you'll grade them.",
           h("textarea", { id: p + "-questions", rows: 8, "aria-describedby": p + "-questions-hint", value: v.questions }))),
       h("fieldset", null,
@@ -583,6 +631,26 @@
       }
     });
     container.replaceChildren(f);
+    enhanceFileInputs(container);
+  }
+
+  /* ---------- Drop zones ---------- */
+  // Turns each file input into a large drop target. The real input is stretched invisibly over the
+  // whole zone, so clicking, keyboard use, screen readers and dropping a file all go through it natively.
+  function enhanceFileInputs(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('input[type="file"]'), function (input) {
+      if (input.parentNode.classList.contains("dropzone")) return;
+      var zone = h("div", { class: "dropzone" },
+        h("span", { class: "dropzone__icon", "aria-hidden": "true", text: "⇪" }),
+        h("span", { class: "dropzone__text", "aria-hidden": "true" },
+          h("strong", { text: "Drop a file here" }), " or click to choose one"));
+      input.parentNode.insertBefore(zone, input);
+      zone.insertBefore(input, zone.firstChild);
+      var depth = 0;
+      zone.addEventListener("dragenter", function () { depth++; zone.classList.add("is-over"); });
+      zone.addEventListener("dragleave", function () { if (--depth <= 0) { depth = 0; zone.classList.remove("is-over"); } });
+      zone.addEventListener("drop", function () { depth = 0; zone.classList.remove("is-over"); });
+    });
   }
 
   function readRubricRows(rows) {
@@ -606,8 +674,9 @@
   }
 
   /* ---------- Rubric files ---------- */
-  // Small CSV reader: commas, quoted fields with "" escapes, CRLF or LF.
-  function parseCsv(text) {
+  // Small CSV reader: commas (or another delimiter, e.g. tab), quoted fields with "" escapes, CRLF or LF.
+  function parseCsv(text, delim) {
+    delim = delim || ",";
     var rows = [], row = [], cell = "", q = false;
     text = String(text).replace(/^﻿/, "");
     for (var i = 0; i < text.length; i++) {
@@ -617,7 +686,7 @@
         else if (ch === '"') q = false;
         else cell += ch;
       } else if (ch === '"') q = true;
-      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === delim) { row.push(cell); cell = ""; }
       else if (ch === "\n" || ch === "\r") {
         if (ch === "\r" && text[i + 1] === "\n") i++;
         row.push(cell); rows.push(row); row = []; cell = "";
@@ -662,6 +731,52 @@
     var d = duplicates(list.map(function (r) { return r.name; }));
     if (d.length) throw new Error("This file lists these rubric columns twice: " + listText(d) + ".");
     return list;
+  }
+
+  /* ---------- Student list files ---------- */
+  // Reads student names from a session export (.json), a plain list (.txt, one per line),
+  // or a spreadsheet saved as CSV/TSV. With a header row, a "Name"/"Student" column wins,
+  // then "First name" + "Last name"; otherwise the first column is used.
+  function parseStudentFile(text, filename) {
+    var trimmed = String(text).replace(/^﻿/, "").trim();
+    var names;
+    if (/\.json$/i.test(filename) || trimmed.charAt(0) === "{") {
+      var o;
+      try { o = JSON.parse(trimmed); } catch (e) { throw new Error("That file isn't valid JSON, so it can't be loaded."); }
+      if (!o || o.format !== FMT.session || !Array.isArray(o.students)) {
+        throw new Error("That JSON file isn't a session export, so it has no student list. Use a .txt, .csv or session file.");
+      }
+      names = o.students.filter(function (x) { return typeof x === "string"; });
+    } else if (/\.txt$/i.test(filename) && trimmed.indexOf("\t") < 0) {
+      names = lines(trimmed);
+    } else {
+      var tsv = /\.tsv$/i.test(filename) || (trimmed.indexOf("\t") >= 0 && trimmed.indexOf(",") < 0);
+      var rows = parseCsv(trimmed, tsv ? "\t" : ",");
+      var col = 0, first = -1, last = -1;
+      var head = (rows[0] || []).map(norm);
+      var nameRe = /^(student|students|name|names|full name|student name|student full name|display name)$/;
+      var isHeader = head.some(function (c) {
+        return nameRe.test(c) || /^(first|given|last|family|sur)\s*name$|^surname$/.test(c);
+      });
+      if (isHeader) {
+        col = -1;
+        head.forEach(function (c, i) {
+          if (col < 0 && nameRe.test(c)) col = i;
+          if (first < 0 && /^(first|given)\s*name$/.test(c)) first = i;
+          if (last < 0 && (/^(last|family|sur)\s*name$/.test(c) || c === "surname")) last = i;
+        });
+        rows = rows.slice(1);
+        if (col < 0 && first < 0 && last < 0) col = 0;
+      }
+      names = rows.map(function (r) {
+        if (col >= 0) return r[col] || "";
+        return [first >= 0 ? r[first] : "", last >= 0 ? r[last] : ""].filter(Boolean).join(" ");
+      });
+    }
+    names = names.map(function (n) { return String(n).replace(/\s+/g, " ").trim(); })
+      .filter(function (n) { return n && !/^points possible$/i.test(n); }); // Canvas gradebook exports have this row
+    if (!names.length) throw new Error("No student names found in this file.");
+    return names;
   }
 
   function rubricJson(rubric, assignment) {
@@ -1678,6 +1793,15 @@
       }
     });
     $("close-session").addEventListener("click", closeSession);
+
+    enhanceFileInputs(document);
+    // A file dropped outside a drop zone would make the browser open it and leave the app, losing an unsaved form.
+    ["dragover", "drop"].forEach(function (type) {
+      window.addEventListener(type, function (e) {
+        var t = e.target;
+        if (!(t && t.type === "file")) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "none"; }
+      });
+    });
 
     show("start", false);
   }

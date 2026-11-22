@@ -38,7 +38,8 @@ which clears the browser's copy.
 ## How a grading session goes
 
 1. **Set up.** Enter the assignment name, students (one per line; a pasted
-   spreadsheet column works), questions (Q1–Q4 by default) and rubric columns.
+   spreadsheet column works, or load them from a file, see *Student list files*
+   below), questions (Q1–Q4 by default) and rubric columns.
    Max points per rubric column is optional; with it, the report also gives scores
    (max minus points off, never below 0, summed across all questions).
    You can also load the rubric columns from a file instead of typing them (see
@@ -116,6 +117,24 @@ Loading replaces the columns in the form (you're asked first if it isn't empty).
 On the Setup page nothing changes until you press **Save changes**; a loaded column
 whose name matches an existing one (ignoring capitals) keeps its issues, and you're
 asked before any column with issues is removed.
+
+## Student list files
+
+Under the **Students** box (new-assignment form and Setup page), **Load students
+from a file** fills the box from any of these:
+
+- a `.txt` file with one name per line,
+- a `.csv` (or tab-separated) spreadsheet export. With a header row, a `Name` or
+  `Student` column is used, or else `First name` and `Last name` columns are joined.
+  Without a header, the first column is used. A Canvas-style `Points Possible` row
+  is skipped.
+- a session export (its students are used).
+
+If the box already has names, you choose whether to add only the new names or
+replace the list. On the Setup page nothing changes until you press **Save changes**.
+
+Every file picker in the app is a large drop zone: drag a file onto it, or click it
+to browse.
 
 ## Importing canned issues
 
